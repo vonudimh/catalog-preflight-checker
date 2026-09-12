@@ -1,0 +1,82 @@
+<!doctype html>
+
+<html lang="en">
+
+<head>
+
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>Shopify CSV Preflight | Catalog Preflight</title>
+
+<meta name="description" content="Check a Shopify product CSV in your browser before an import. Files stay on your device.">
+
+<link rel="canonical" href="https://catalog-preflight.pages.dev/">
+
+<style>
+
+:root{color-scheme:light} body{margin:0;background:#f4f7fb;color:#17212e;font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}main{max-width:900px;margin:auto;padding:48px 20px}h1{font-size:clamp(2.2rem,7vw,4.3rem);line-height:1.03;letter-spacing:-.04em;margin:.4rem 0 1rem}.eyebrow{font-weight:800;letter-spacing:.13em;color:#4268c8;font-size:.78rem}p{max-width:700px}.panel{background:#fff;border:1px solid #dce4f1;border-radius:18px;padding:26px;margin:28px 0;box-shadow:0 12px 30px #102b5c0c}input{display:block;margin:16px 0;padding:14px;border:2px dashed #7591cb;border-radius:10px;width:min(100%,520px);background:#f8faff}button{border:0;border-radius:9px;background:#244da4;color:#fff;padding:12px 16px;font-weight:750;cursor:pointer}button:disabled{opacity:.55;cursor:wait}.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px;margin:16px 0}.metric{background:#eef3ff;border-radius:10px;padding:13px}.metric b{display:block;font-size:1.4rem}.issue{border-left:4px solid #c05621;background:#fff7ed;padding:12px;margin:10px 0}.ok{border-left-color:#25855a;background:#effaf4}.muted{color:#5b6b80;font-size:.92rem}a{color:#244da4;font-weight:700}
+
+</style>
+
+</head>
+
+<body><main>
+
+<div class="eyebrow">CATALOG PREFLIGHT</div>
+
+<h1>Check the CSV before Shopify does.</h1>
+
+<p>Choose a Shopify product CSV and get a local preflight report for common structural problems: blank handles, image rows that do not use a public URL, variants missing option values, repeated handles that should be reviewed, and missing image alt text. Nothing is uploaded; the parser runs in this browser.</p>
+
+<section class="panel">
+
+<h2>Local CSV check</h2>
+
+<input id="file" type="file" accept=".csv,text/csv">
+
+<button id="run" disabled>Run preflight</button> <button id="sample" type="button">Try the included sample</button>
+
+<label class="muted">Import intent <select id="intent"><option value="create">Create products</option><option value="update">Update existing products</option></select></label>
+
+<p id="state" class="muted">Select a UTF-8 Shopify product CSV to begin.</p>
+
+<div id="report" hidden></div>
+
+</section>
+
+<section class="panel">
+
+<h2>What this checks</h2>
+
+<ul><li>Required <code>Handle</code> and <code>Title</code> headers</li><li>Blank handles and duplicate handle groups</li><li>Image rows without a public <code>Image Src</code> URL</li><li>Variant rows missing <code>Option1 Value</code> or sharing a repeated option-value combination</li><li>Blank cells that can behave differently from omitted columns during update imports</li><li>Image-alt-text coverage, plus a local review CSV with title/color-based draft text</li></ul>
+
+<p class="muted">This is a structural aid, not an import simulator. It does not log into Shopify, fetch image URLs, change a store, or prove that an import will succeed. Check Shopify’s current CSV documentation before an actual import.</p>
+
+</section>
+
+<section class="panel"><h2>Need a repeatable review process?</h2><p>The $9 implementation kit adds the current unlimited offline checker, annotated examples for product-image and variant rows, an import-review worksheet, and a concise field-by-field guide.</p><p><a href="https://whop.com/checkout/plan_I6EEIVzOSyqqq">Get the $9 implementation kit</a></p><h3>Want a manual review before you import?</h3><p>The $29 Review + kit option includes a plain-language structural review of one non-sensitive proposed product CSV within one business day, plus the implementation kit. It covers headers, handles, image URLs, variants, and overwrite-risk fields. It does not log in to Shopify, modify a store, recover data, or guarantee import success.</p><p><a href="https://whop.com/checkout/plan_jsXI9stg0F9Ju">Get Review + kit for $29</a></p></section>
+
+</main>
+
+<script>
+
+const f=document.querySelector('#file'),run=document.querySelector('#run'),sample=document.querySelector('#sample'),intent=document.querySelector('#intent'),state=document.querySelector('#state'),report=document.querySelector('#report');
+
+f.addEventListener('change',()=>{run.disabled=!f.files[0];state.textContent=f.files[0]?'Ready to inspect locally.':'Select a UTF-8 Shopify product CSV to begin.'});
+
+function parseCSV(text){const rows=[];let row=[],cell='',q=false;for(let i=0;i<text.length;i++){const c=text[i],n=text[i+1];if(c==='"'){if(q&&n==='"'){cell+='"';i++}else q=!q}else if(c===','&&!q){row.push(cell);cell=''}else if((c==='\n'||c==='\r')&&!q){if(c==='\r'&&n==='\n')i++;row.push(cell);if(row.some(v=>v!==''))rows.push(row);row=[];cell=''}else cell+=c}row.push(cell);if(row.some(v=>v!==''))rows.push(row);return rows}
+
+function preflight(text){run.disabled=true;state.textContent='Checking locally…';const hadBom=text.charCodeAt(0)===0xFEFF,rows=parseCSV(text.replace(/^\uFEFF/,'')),rawHeaders=rows.shift()||[],headers=rawHeaders.map(v=>v.trim()),at=n=>headers.indexOf(n),missing=['Handle','Title'].filter(n=>at(n)<0),issues=[];if(hadBom)issues.push('UTF-8 BOM found and ignored for this local check. Confirm the file encoding against Shopify’s current import guidance.');rawHeaders.forEach((h,i)=>{const trimmed=h.trim();if(h!==trimmed)issues.push('Header '+(i+1)+' has leading or trailing whitespace: "'+h+'".');const expected=['Handle','Title','Image Src','Option1 Value'].find(x=>x.toLowerCase()===trimmed.toLowerCase());if(expected&&trimmed!==expected)issues.push('Header '+(i+1)+' is "'+trimmed+'"; review its exact spelling and capitalization against Shopify’s documented header.');});if(!rows.length)issues.push('No data rows found.');if(missing.length)issues.push('Missing required header: '+missing.join(', ')+'.');const seen=new Map,idx={handle:at('Handle'),title:at('Title'),img:at('Image Src'),option:at('Option1 Value')},optionCols=['Option1 Value','Option2 Value','Option3 Value'].map(at),optionCombos=new Map,repeatedTitles=new Map,updateRows=[];rows.forEach((r,i)=>{const n=i+2,h=idx.handle>=0?(r[idx.handle]||'').trim():'',title=idx.title>=0?(r[idx.title]||'').trim():'',img=idx.img>=0?(r[idx.img]||'').trim():'',option=idx.option>=0?(r[idx.option]||'').trim():'';if(idx.handle>=0&&!h)issues.push('Row '+n+': blank Handle.');if(h){seen.set(h,(seen.get(h)||0)+1);if(title)repeatedTitles.set(h,(repeatedTitles.get(h)||0)+1);const optionValues=optionCols.map(j=>j>=0?(r[j]||'').trim():''),hasOption=optionValues.some(Boolean);if(hasOption){const combo=h+'\u0001'+optionValues.join('\u0001');optionCombos.set(combo,(optionCombos.get(combo)||0)+1)}}if(img&&!/^https?:\/\//i.test(img))issues.push('Row '+n+': Image Src is not an http(s) URL.');if(h&&title===''&&img===''&&idx.option>=0&&!option)issues.push('Row '+n+': possible variant row has a blank Option1 Value.');if(intent.value==='update'&&h&&title){const blanks=headers.filter((_,j)=>j!==idx.handle&&j!==idx.title&&(r[j]||'').trim()==='');if(blanks.length)updateRows.push(n);}});if(intent.value==='update'&&updateRows.length)issues.push('Update-import review: '+updateRows.length+' product row(s) have blank included fields. Shopify documents that blank cells in included non-required columns can overwrite existing values; review these rows before selecting overwrite.');[...repeatedTitles].filter(([,n])=>n>1).forEach(([h,n])=>issues.push('Product-row review: Handle \"'+h+'\" has Title populated on '+n+' rows. Confirm those rows are not accidental repeated product starts.'));[...optionCombos].filter(([,n])=>n>1).forEach(([combo,n])=>{const parts=combo.split('\u0001'),h=parts.shift(),values=parts.map(v=>v||'blank').join(' / ');issues.push('Variant review: Handle \"'+h+'\" has '+n+' rows with the same option-value combination ('+values+'). Confirm that they are intentional before importing.');});[...seen].filter(([,n])=>n>1).forEach(([h,n])=>issues.push('Handle "'+h+'" appears '+n+' times. Repeated handles can be valid for variants or additional images; review the rows together.'));const alt=at('Image Alt Text'),altRows=alt>=0?rows.filter(r=>(r[idx.img]||'').trim()):[],blankAlt=alt>=0?altRows.filter(r=>(r[alt]||'').trim()===''):[];if(alt>=0&&blankAlt.length)issues.push('Image-alt-text review: '+blankAlt.length+' image row(s) have a public image URL but blank Image Alt Text. Download the local audit to review title/color-based drafts before writing anything back to Shopify.');const metrics=[['Rows',rows.length],['Columns',headers.length],['Handle groups',seen.size],['Review items',issues.length]],auditButton=altRows.length?'<button id="audit">Download alt-text audit</button>':'';report.innerHTML='<div class="summary">'+metrics.map(([k,v])=>'<div class="metric"><b>'+v+'</b>'+k+'</div>').join('')+'</div><h3>Report</h3>'+(issues.length?issues.map(x=>'<div class="issue">'+x.replace(/</g,'&lt;')+'</div>').join(''):'<div class="issue ok">No structural items were flagged by this limited local check.</div>')+'<button id="download">Download report</button> '+auditButton;report.hidden=false;const save=(name,data,type)=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type:type||'text/plain'}));a.download=name;a.click();URL.revokeObjectURL(a.href)};document.querySelector('#download').onclick=()=>{const out=['Shopify CSV Preflight Report','Rows: '+rows.length,'Columns: '+headers.length,'','Items:'].concat(issues.length?issues:['No structural items flagged.']).join('\n');save('shopify-csv-preflight-report.txt',out)};const audit=document.querySelector('#audit');if(audit)audit.onclick=()=>{const esc=v=>'"'+String(v||'').replaceAll('"','""')+'"';const out=[['Handle','Title','Image Src','Current Image Alt Text','Draft for review','Status']].concat(altRows.map(r=>{const title=(r[idx.title]||'').trim(),option=(r[idx.option]||'').trim(),current=(r[alt]||'').trim(),draft=[title,option].filter(Boolean).join(' ? ');return [r[idx.handle]||'',title,r[idx.img]||'',current,draft,current?'Present':'Blank ? review draft']})).map(r=>r.map(esc).join(',')).join('\r\n');save('shopify-image-alt-text-audit.csv',out,'text/csv;charset=utf-8')};state.textContent='Finished locally. No file was uploaded.';run.disabled=false}
+
+run.addEventListener('click',async()=>{const file=f.files[0];if(file)preflight(await file.text())});
+
+const offlineSample='Handle,Title,Option1 Name,Option1 Value,Variant Price,Image Src,Image Alt Text\ncloud-tote,Cloud Tote,Color,Blue,24.00,https://example.com/cloud-tote.jpg,Cloud Tote ? Blue\ncloud-tote,,,,,https://example.com/cloud-tote-side.jpg,\n,Blank Handle,Color,,18.00,images/local.jpg,';sample.addEventListener('click',()=>preflight(offlineSample));
+
+</script></body></html>
+
+
+
+
+
+
+
